@@ -1,0 +1,42 @@
+import boto3
+
+rekognition = boto3.client('rekognition')
+sns = boto3.client('sns')
+
+BUCKET_NAME = 'image-upload-rek'
+IMAGE_NAME = 'dog.jpg'
+TOPIC_ARN = 'YOUR_SNS_TOPIC_ARN'
+
+def lambda_handler(event, context):
+
+    response = rekognition.detect_labels(
+        Image={
+            'S3Object': {
+                'Bucket': BUCKET_NAME,
+                'Name': IMAGE_NAME
+            }
+        },
+        MaxLabels=5,
+        MinConfidence=80
+    )
+
+    labels = response['Labels']
+
+    message = f"Image Analyzed: {IMAGE_NAME}\n\nDetected Labels:\n"
+
+    for label in labels:
+        message += (
+            f"{label['Name']} "
+            f"({round(label['Confidence'],2)}%)\n"
+        )
+
+    sns.publish(
+        TopicArn=TOPIC_ARN,
+        Subject='Image Detection Alert',
+        Message=message
+    )
+
+    return {
+        'statusCode': 200,
+        'body': message
+    }
